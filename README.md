@@ -2,10 +2,9 @@
 
 > *Note:*
 >
-> This a plugin for counting uncore performance events on Intel Westermere, SandyBridge E and AMD
-> Interlagos microarchitecture.
->
-> For uncore cbox counters the SandyBridge E CBOX synchronous plugin should be used.
+> This is a plugin for couting performance events asynchronously on every cpu package per system.
+> The plugin was initially created to cout uncore performance events but it it can be used for every
+> event exported by papi\_native\_avail.
 
 ##Compilation and Installation
 
@@ -17,19 +16,12 @@ To compile this plugin, you need:
 
 * `libpthread`
 
-* `libx86_energy`
+* PAPI (`5.4+`)
 
-* PAPI (`5.2+`)
+* Score-P (`1.4+`)
 
-* VampirTrace (`5.14+`)
+* Linux Kernel 3.10+ (Haswell EP Support 3.16+)
 
-* The kernel module `msr` should be active (you might use `modprobe`) and you should have readwrite
-    access to `/dev/cpu/*/msr`
-
-> *Note:*
->
-> For accessing northbridge register e.g. on SandyBridge root access is necessary. On the other
-> microarchitectures access to the msr registers is sufficient.
 
 ###Building
 
@@ -40,48 +32,50 @@ To compile this plugin, you need:
 
 2. Invoke CMake
 
-    Specify the `x86_energy` directory if it is not in the default path with `-DX86_ENERGY_INC=<PATH>`.
+    Specify the path to the PAPI headers with `-DPAPI_INC` if they're not in the default path.
+    Some additional papi headers are required, which are not installed by default.
+    You need to copy the following header files to your papi include directory:
 
-    CMake and make will be invoked on the `x86_energy` lib. To use a prebuild `x86_energy` lib use
-    `-DX86_ENERGY_BUILD=OFF` and specify the path with `-DX86_ENERGY_LIB=<PATH>`.
+        <papi src dir>/src/libpfm4/include
 
-    Default is to link static. To link dynamic turn `-DX86_ENERGY_STATIC=OFF`.
+    To build the plugin for Score-P you'll need to add `-DBACKEND_SCOREP=true` as an argument to the
+    CMake call.
 
-        cmake ..
-
-    Example for a prebuild static linked `x86_energy` which is not in the default path:
-
-        cmake .. -DX86_ENERGY_INC=~/X86_ENERGY_energylib -DX86_ENERGY_LIB=~/X86_ENERGY_energylib/build -DX86_ENERGY_BUILD=OFF
+        cmake .. -DBACKEND_SCOREP=true
 
 3. Invoke make
 
         make
 
-4. Copy it to a location listed in `LD_LIBRARY_PATH` or add current path to `LD_LIBRARY_PATH` with
+4. Copy the resulting `libUPP.so` to a location listed in `LD_LIBRARY_PATH` or add current path to
+    `LD_LIBRARY_PATH` with
 
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`
 
-> *Note:*
->
-> If `libx86` energy ist dynamic linked then the path to `libx86_energy.so` has to be in
-> `LD_LIBRARY_PATH` too
-
 ##Usage
 
-This plugin uses the event parsing api from `libpfm`. `libpfm` supplies the neat tool `showevtinfo`
-to display all supported events.
+This plugin uses papi for parsing the events and utilises perf for counting uncore performance events.
+For couting uncore performance events priviliged rights or reducing the paranoid level is required, e.g.
 
-Examples:
+    sudo sysctl kernel.perf_event_paranoid=0
 
-    export VT_PLUGIN_CNTR_METRICS=UNCOREPlugin_UNC_H_CLOCKTICKS
+The list of available events can be obtained by running `papi_native_avail`. The events to be counted
+need to be added to the `SCOREP_METRIC_UPP` environment variable, e.g.
 
-If there are multiple pmu you have to supply them explicitly.
+    export SCOREP_METRIC_UPP=hswep_unc_pcu::UNC_P_CLOCKTICKS
 
-    export VT_PLUGIN_CNTR_METRICS=UNCOREPlugin_snbep_unc_imc0##UNC_M_CAS_COUNT:UNCOREPlugin_snbep_unc_imc1##UNC_M_CAS_COUNT
+If you're facing an error message like
+
+    Failed to encode event: hswep_unc_qpi0::UNC_Q_TXR_BL_NCS_CREDIT_ACQUIRED
+    invalid or missing unit mask
+    [Score-P] src/services/metric/scorep_metric_plugins.c:522: Fatal: Bug 'metric_infos == NULL': Error while initializing plugin metric hswep_unc_qpi0::UNC_Q_TXR_BL_NCS_CREDIT_ACQUIRED, no info returned
+
+you probably missed a needed argument for the specific counter (in this example `:VN0` or `:VN1` has
+to be appended to the end of the counter name).
 
 ###Environment variables
 
-* `VT_UNCORE_INTERVAL_US` (default=100000)
+* `UPP_INTERVAL_US` (default=100000)
 
     The interval in usecs, the register is read.
 
@@ -92,7 +86,7 @@ If there are multiple pmu you have to supply them explicitly.
     To gain most exact values, you should set the interval to 10, if you can live with less
     precision, you should set it to 10000.
 
-* `VT_UNCORE_BUF_SIZE` (default=100)
+* `UPP_BUF_SIZE` (default=4194304 (4Mib))
 
     The size of the buffer for storing elements. A lower size means leasser overhead. But a to small
     buffer might be not capable of storing all events. If this is the case, then a error message
@@ -102,7 +96,7 @@ If there are multiple pmu you have to supply them explicitly.
 
 1. Check whether the plugin library can be loaded from the `LD_LIBRARY_PATH`.
 
-2. Check whether you are allowed to read `/dev/cpu/*/msr`
+2. Check with `sysctl` whether `kernel.perf\_event\_paranoid` is 0
 
 3. Write a mail to the author.
 
