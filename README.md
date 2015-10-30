@@ -38,10 +38,9 @@ To compile this plugin, you need:
 
         <papi src dir>/src/libpfm4/include
 
-    To build the plugin for Score-P you'll need to add `-DBACKEND_SCOREP=true` as an argument to the
-    CMake call.
+    Afterwards, just call CMake, e.g.:
 
-        cmake .. -DBACKEND_SCOREP=true
+        cmake ..
 
 3. Invoke make
 
@@ -54,15 +53,18 @@ To compile this plugin, you need:
 
 ##Usage
 
-This plugin uses papi for parsing the events and utilises perf for counting uncore performance events.
-For couting uncore performance events priviliged rights or reducing the paranoid level is required, e.g.
+This plugin uses papi for parsing the events and utilises perf for counting uncore performance
+events. For couting uncore performance events priviliged rights or reducing the paranoid level is
+required, e.g.
 
     sudo sysctl kernel.perf_event_paranoid=0
 
-The list of available events can be obtained by running `papi_native_avail`. The events to be counted
-need to be added to the `SCOREP_METRIC_UPP` environment variable, e.g.
+The list of available events can be obtained by running `papi_native_avail`. To use this plugin, it
+has to be added to the `SCOREP_METRIC_PLUGINS` variable. Afterwards, the events to be counted need
+to be added to the `SCOREP_METRIC_UPP` environment variable, e.g.
 
-    export SCOREP_METRIC_UPP=hswep_unc_pcu::UNC_P_CLOCKTICKS
+    export SCOREP_METRIC_PLUGINS="UPP"
+    export SCOREP_METRIC_UPP_PLUGIN="hswep_unc_pcu::UNC_P_CLOCKTICKS"
 
 If you're facing an error message like
 

@@ -9,7 +9,7 @@ set(PLUGIN_SOURCE uncore_perf_plugin.c)
 set(VT_INC "" CACHE PATH "Path of the vampirtrace headers")
 set(PAPI_INC "" CACHE PATH "Path of the papi headers")
 
-option(BACKEND_SCOREP "Build plugin using scorep(ON) or vampirtrace(OFF)" OFF)
+option(BACKEND_SCOREP "Build plugin using scorep(ON) or vampirtrace(OFF)" ON)
 
 #additional c flags
 set(CMAKE_C_FLAGS "-D_GNU_SOURCE -std=c11 -O2 -g")
