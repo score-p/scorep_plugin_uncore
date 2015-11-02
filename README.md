@@ -3,7 +3,7 @@
 > *Note:*
 >
 > This is a plugin for couting performance events asynchronously on every cpu package per system.
-> The plugin was initially created to cout uncore performance events but it it can be used for every
+> The plugin was initially created to count uncore performance events but it can be used for every
 > event exported by papi\_native\_avail.
 
 ##Compilation and Installation
@@ -46,7 +46,7 @@ To compile this plugin, you need:
 
         make
 
-4. Copy the resulting `libUPP.so` to a location listed in `LD_LIBRARY_PATH` or add current path to
+4. Copy the resulting `libUPP.so` to a location listed in `LD_LIBRARY_PATH` or add the current path to
     `LD_LIBRARY_PATH` with
 
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`
@@ -54,7 +54,7 @@ To compile this plugin, you need:
 ##Usage
 
 This plugin uses papi for parsing the events and utilises perf for counting uncore performance
-events. For couting uncore performance events priviliged rights or reducing the paranoid level is
+events. For couting uncore performance events, priviliged rights or reducing the paranoid level is
 required, e.g.
 
     sudo sysctl kernel.perf_event_paranoid=0
@@ -79,7 +79,7 @@ to be appended to the end of the counter name).
 
 * `UPP_INTERVAL_US` (default=100000)
 
-    The interval in usecs, the register is read.
+    The interval in usecs between two reads of the register.
 
     A higher interval means less disturbance, a lower interval is more exact. The registers are
     updated roughly every msec. If you choose your interval to be around 1ms you might find highly
