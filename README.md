@@ -46,8 +46,8 @@ To compile this plugin, you need:
 
         make
 
-4. Copy the resulting `libUPP.so` to a location listed in `LD_LIBRARY_PATH` or add the current path to
-    `LD_LIBRARY_PATH` with
+4. Copy the resulting `libupp_plugin.so` to a location listed in `LD_LIBRARY_PATH` or add the
+    current path to `LD_LIBRARY_PATH` with
 
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`
 
@@ -61,9 +61,9 @@ required, e.g.
 
 The list of available events can be obtained by running `papi_native_avail`. To use this plugin, it
 has to be added to the `SCOREP_METRIC_PLUGINS` variable. Afterwards, the events to be counted need
-to be added to the `SCOREP_METRIC_UPP` environment variable, e.g.
+to be added to the `SCOREP_METRIC_UPP_PLUGIN` environment variable, e.g.
 
-    export SCOREP_METRIC_PLUGINS="UPP"
+    export SCOREP_METRIC_PLUGINS="upp_plugin"
     export SCOREP_METRIC_UPP_PLUGIN="hswep_unc_pcu::UNC_P_CLOCKTICKS"
 
 If you're facing an error message like
