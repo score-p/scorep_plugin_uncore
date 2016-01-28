@@ -16,7 +16,7 @@ To compile this plugin, you need:
 
 * `libpthread`
 
-* PAPI (`5.4+`)
+* PAPI (`5.4.3+` compiled with --enable-perf-event-uncore)
 
 * Score-P (`1.4+`)
 
