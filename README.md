@@ -46,7 +46,7 @@ To compile this plugin, you need:
 
         make
 
-4. Copy the resulting `libupp_plugin.so` to a location listed in `LD_LIBRARY_PATH` or add the
+4. Copy the resulting `libupe_plugin.so` to a location listed in `LD_LIBRARY_PATH` or add the
     current path to `LD_LIBRARY_PATH` with
 
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`
@@ -61,10 +61,10 @@ required, e.g.
 
 The list of available events can be obtained by running `papi_native_avail`. To use this plugin, it
 has to be added to the `SCOREP_METRIC_PLUGINS` variable. Afterwards, the events to be counted need
-to be added to the `SCOREP_METRIC_UPP_PLUGIN` environment variable, e.g.
+to be added to the `SCOREP_METRIC_UPE_PLUGIN` environment variable, e.g.
 
-    export SCOREP_METRIC_PLUGINS="upp_plugin"
-    export SCOREP_METRIC_UPP_PLUGIN="hswep_unc_pcu::UNC_P_CLOCKTICKS"
+    export SCOREP_METRIC_PLUGINS="upe_plugin"
+    export SCOREP_METRIC_UPE_PLUGIN="hswep_unc_pcu::UNC_P_CLOCKTICKS"
 
 If you're facing an error message like
 
@@ -77,7 +77,7 @@ to be appended to the end of the counter name).
 
 ###Environment variables
 
-* `UPP_INTERVAL_US` (default=100000)
+* `UPE_INTERVAL_US` (default=100000)
 
     The interval in usecs between two reads of the register.
 
@@ -88,7 +88,7 @@ to be appended to the end of the counter name).
     To gain most exact values, you should set the interval to 10, if you can live with less
     precision, you should set it to 10000.
 
-* `UPP_BUF_SIZE` (default=4194304 (4Mib))
+* `UPE_BUF_SIZE` (default=4194304 (4Mib))
 
     The size of the buffer for storing elements. A lower size means leasser overhead. But a to small
     buffer might be not capable of storing all events. If this is the case, then a error message

@@ -1,5 +1,5 @@
 /*
-   libUPP.so,
+   libupe_plugin.so,
    a library to count Uncore events on a SandyBridge E processor and others for Score-P.
    Copyright (C) 2015 TU Dresden, ZIH
  */
@@ -166,18 +166,18 @@ int32_t init(void) {
     /* get number of packages */
     node_num = x86_energy_get_nr_packages();
 
-    env_string = getenv("UPP_INTERVAL_US");
+    env_string = getenv("UPE_INTERVAL_US");
     if (env_string == NULL)
         interval_us = 100000;
     else {
         interval_us = atoi(env_string);
         if (interval_us == 0) {
-            fprintf(stderr, "Could not parse UPP_INTERVAL_US, using 100 ms\n");
+            fprintf(stderr, "Could not parse UPE_INTERVAL_US, using 100 ms\n");
             interval_us = 100000;
         }
     }
 
-    env_string = getenv("UPP_BUF_SIZE");
+    env_string = getenv("UPE_BUF_SIZE");
     if (env_string != NULL) {
         buf_size = parse_buffer_size(env_string);
         if (buf_size < 1024) {
@@ -187,7 +187,7 @@ int32_t init(void) {
     }
 
 #if defined(BACKEND_SCOREP)
-    env_string = getenv("UPP_SEP");
+    env_string = getenv("UPE_SEP");
     if (env_string != NULL) {
         vt_sep = env_string[0];
     }
@@ -333,7 +333,7 @@ void * thread_report(void * ignore) {
                 if (event_list[i].data_count >= num_buf_elems) {
                         event_list[i].enabled = 0;
                         fprintf(stderr, "Buffer reached maximum %zuB. Loosing events.\n", (buf_size));
-                        fprintf(stderr, "Set UPP_BUF_SIZE environment variable to increase buffer size\n");
+                        fprintf(stderr, "Set UPE_BUF_SIZE environment variable to increase buffer size\n");
                     }
                 else {
                     /* measure time and read value */
@@ -406,7 +406,7 @@ uint64_t get_all_values(int32_t id, timevalue_t **result) {
 }
 
 #ifdef BACKEND_SCOREP
-SCOREP_METRIC_PLUGIN_ENTRY( UPP )
+SCOREP_METRIC_PLUGIN_ENTRY( upe_plugin )
 #endif
 #ifdef BACKEND_VTRACE
 vt_plugin_cntr_info get_info()

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(upp_plugin)
+project(upe_plugin)
 
 option(BACKEND_SCOREP "Build plugin using scorep(ON) or vampirtrace(OFF)" ON)
 
