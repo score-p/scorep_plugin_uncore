@@ -5,6 +5,7 @@
 > This is a plugin for couting performance events asynchronously on every cpu package per system.
 > The plugin was initially created to count uncore performance events but it can be used for every
 > event exported by papi\_native\_avail.
+> Optionally x86_adapt can be used to count uncore performance events instead of perf.
 
 ##Compilation and Installation
 
@@ -22,6 +23,9 @@ To compile this plugin, you need:
 
 * Linux Kernel 3.10+ (Haswell EP Support 3.16+)
 
+Optional:
+
+* x86_adapt (https://github.com/tud-zih-energy/x86_adapt)
 
 ###Building
 
@@ -32,7 +36,7 @@ To compile this plugin, you need:
 
 2. Invoke CMake
 
-    Specify the path to the PAPI headers with `-DPAPI_INC` if they're not in the default path.
+    Specify the path to the PAPI headers with `-DPFM_INC` if they're not in the default path.
     Some additional papi headers are required, which are not installed by default.
     You need to copy the following header files to your papi include directory:
 
@@ -41,6 +45,12 @@ To compile this plugin, you need:
     Afterwards, just call CMake, e.g.:
 
         cmake ..
+
+    Alternatively these path can be passed to CMake via `-DPFM_INC`. e.g.:
+
+        cmake .. -DPFM_INC=~/papi/src/libpfm4/include
+
+    Optionally x86_adapt can be used with the `-DX86_ADAPT` CMake flag.
 
 3. Invoke make
 

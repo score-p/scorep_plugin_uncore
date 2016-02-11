@@ -20,47 +20,12 @@
 #include <perfmon/pfmlib_perf_event.h>
 #include <perfmon/perf_event.h>
 
-#if !defined(BACKEND_SCOREP) && !defined(BACKEND_VTRACE)
-#define BACKEND_VTRACE
+#include "uncore_perf_plugin.h"
+#ifdef X86_ADAPT
+#include "x86a_wrapper.h"
+#include <x86_adapt.h>
 #endif
 
-#if defined(BACKEND_SCOREP) && defined(BACKEND_VTRACE)
-#error "Cannot compile for both VT and Score-P at the same time!\n"
-#endif
-
-#ifdef BACKEND_SCOREP
-#include <scorep/SCOREP_MetricPlugins.h>
-#endif
-#ifdef BACKEND_VTRACE
-#include <vampirtrace/vt_plugin_cntr.h>
-#endif
-
-#ifdef BACKEND_SCOREP
-    typedef SCOREP_Metric_Plugin_MetricProperties metric_properties_t;
-    typedef SCOREP_MetricTimeValuePair timevalue_t;
-    typedef SCOREP_Metric_Plugin_Info plugin_info_type;
-#endif
-
-#ifdef BACKEND_VTRACE
-    typedef vt_plugin_cntr_metric_info metric_properties_t;
-    typedef vt_plugin_cntr_timevalue timevalue_t;
-    typedef vt_plugin_cntr_info plugin_info_type;
-#endif
-
-struct event {
-    int32_t node;
-    int32_t enabled;
-    void * ID;
-    size_t data_count;
-    timevalue_t *result_vector; 
-    char * name;
-    int fd;
-};
-
-struct event event_list[512];
-int event_list_size = 0;
-int node_num;
-int cpus;
 
 static pthread_t thread;
 static int counter_enabled;
@@ -141,11 +106,10 @@ static int x86_energy_get_nr_packages(void) {
  * If the cpu can not be found on this system -1 is returned.
  */
 static int x86_energy_node_of_cpu(int __cpu) {
-    int node;
     int nr_packages = x86_energy_get_nr_packages();
     char path[64];
 
-    for(node = 0; node < nr_packages; node++)
+    for(int node = 0; node < nr_packages; node++)
     {
         int sz = snprintf(path, sizeof(path), "/sys/devices/system/node/node%d/cpu%d", node, __cpu);
         assert(sz < sizeof(path));
@@ -201,39 +165,52 @@ int32_t init(void) {
         return -1;
     }
 
+#ifdef X86_ADAPT
+    ret = x86a_wrapper_init();
+	if (ret) {
+        fprintf(stderr, "cannot initialize x86 adapt wrapper\n");
+        return -1;
+    }
+#endif
+
+
     return 0;
 }
 
 metric_properties_t * get_event_info(char * __event_name)
 {
     int ret;
-    int i;
-    int node;
     char * fstr = NULL;
     char buf[1024];
     char * event_name = strdup(__event_name);
 
-    pfm_perf_encode_arg_t enc;
-    struct perf_event_attr attr;
-    memset(&enc, 0, sizeof(enc));
-    memset(&attr, 0, sizeof(attr));
+#ifdef X86_ADAPT
+    pfm_pmu_encode_arg_t enc = {0};
+#else
+    pfm_perf_encode_arg_t enc = {0};
+    struct perf_event_attr attr = {0};
     enc.attr = &attr;
+#endif
     enc.fstr = &fstr;
 
 #ifdef BACKEND_VTRACE
-    for (i=0; i<strlen(event_name);i++) 
+    for (int i=0; i<strlen(event_name);i++)
         if (event_name[i] == vt_sep)
             event_name[i] = ':';
 #endif
 
+#ifdef X86_ADAPT
+    ret = pfm_get_os_event_encoding(event_name, PFM_PLM0 | PFM_PLM3, PFM_OS_NONE, &enc);
+#else
     ret = pfm_get_os_event_encoding(event_name, PFM_PLM0 | PFM_PLM3, PFM_OS_PERF_EVENT, &enc);
+#endif
 	if (ret != PFM_SUCCESS) {
         fprintf(stderr, "Failed to encode event: %s\n", event_name);
         fprintf(stderr, "%s\n", pfm_strerror(ret));
         return NULL;
     }
     
-    for (node=0;node<node_num;node++) {
+    for (int node=0;node<node_num;node++) {
         /* create event name */
         event_list[event_list_size].node = node;
         sprintf(buf, "Package: %d Event: %s", node, fstr);
@@ -246,14 +223,22 @@ metric_properties_t * get_event_info(char * __event_name)
             return NULL;
         }
 
-        for(i=0;i<cpus;i++) {
+        for(int i=0;i<cpus;i++) {
             if(x86_energy_node_of_cpu(i) == node) {
+#ifdef X86_ADAPT
+                int32_t ret = x86a_setup_counter(&(event_list[event_list_size]), &enc, i);
+                if (ret) {
+                    fprintf(stderr, "Failed to set up the counter\n");
+                    return NULL;
+                }
+#else
                 int fd = sys_perf_event_open(&attr, i);
                 if (fd < 0) {
                     fprintf(stderr, "Failed to get file descriptor\n");
                     return NULL;
                 }
                 event_list[event_list_size].fd = fd;
+#endif
                 break;
             }
         }
@@ -267,6 +252,8 @@ metric_properties_t * get_event_info(char * __event_name)
       return NULL;
     }
 
+    //TODO fix me
+    int i =0;
     for (i=0;i<node_num;i++) {
     /* if the description is null it should be considered the end */
         return_values[i].name = strdup(event_list[event_list_size - node_num + i].name);
@@ -291,16 +278,19 @@ metric_properties_t * get_event_info(char * __event_name)
 }
 
 void fini(void) {
-    int i;
     fprintf(stderr, "starting finishing\n");
     counter_enabled = 0;
     
     pthread_join(thread, NULL);
 
-    for (i=0;i<event_list_size;i++) {
+    for (int i=0;i<event_list_size;i++) {
         close(event_list[i].fd);
         free(event_list[i].name);
     }
+
+#ifdef X86_ADAPT
+    x86a_wrapper_fini();
+#endif
 
     fprintf(stderr, "finishing done\n");
 }
@@ -308,13 +298,20 @@ void fini(void) {
 static inline uint64_t uncore_perf_read(int id) {
     uint64_t data;
     ssize_t ret;
+#ifdef X86_ADAPT
+    ret = x86_adapt_get_setting(event_list[id].fd, event_list[id].item, &data);
+    if (!ret) {
+        fprintf(stderr, "Error while reading event %s\n", event_list[id].name);
+        return 0;
+    }
+#else
     ret = read(event_list[id].fd, &data, sizeof(data));
     if (ret != sizeof(data)) {
         fprintf(stderr, "Error while reading event %s\n", event_list[id].name);
         fprintf(stderr, "%s\n",strerror(errno));
         return 0;
     }
-
+#endif
     return data;
 }
 
@@ -352,13 +349,21 @@ void * thread_report(void * ignore) {
 }
 
 int32_t add_counter(char * event_name) {
-    int i,j;
-    
+#ifdef X86_ADAPT
+    static int32_t once = 0;
+    if (!once) {
+        int32_t ret = x86a_unfreeze_all();
+        if(ret) {
+            return ret;
+        }
+        once = 1;
+    }
+#endif
     /* sort the events by package id */
     if (!is_sorted) {
         struct event tmp;
-        for (i=event_list_size;i>1;i--) {
-            for (j=0; j<i-1; j++) {
+        for (int i=event_list_size;i>1;i--) {
+            for (int j=0; j<i-1; j++) {
                 if (event_list[j].node > event_list[j+1].node) {
                     memcpy(&tmp, &event_list[j], sizeof(struct event));
                     memcpy(&event_list[j], &event_list[j+1], sizeof(struct event));
@@ -374,11 +379,12 @@ int32_t add_counter(char * event_name) {
         is_thread_created=1;
     }
 
-    for (i=0;i<event_list_size;i++) {
+    for (int i=0;i<event_list_size;i++) {
         if (!strcmp(event_name, event_list[i].name)) {
+#ifndef X86_ADAPT
             ioctl(event_list[i].fd, PERF_EVENT_IOC_RESET, 0);
             ioctl(event_list[i].fd, PERF_EVENT_IOC_ENABLE, 0);
-            // Todo needed?
+#endif
             event_list[i].enabled = 1;
             return i;
         }
@@ -412,8 +418,7 @@ SCOREP_METRIC_PLUGIN_ENTRY( upe_plugin )
 vt_plugin_cntr_info get_info()
 #endif
 {
-    plugin_info_type info;
-    memset(&info,0,sizeof(plugin_info_type));
+    plugin_info_type info = {0};
 #ifdef BACKEND_SCOREP
     info.plugin_version               = SCOREP_METRIC_PLUGIN_VERSION;
     info.run_per                      = SCOREP_METRIC_PER_HOST;

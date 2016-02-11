@@ -1,0 +1,57 @@
+#pragma once
+
+#include <stdlib.h>
+#include <stdint.h>
+
+#if !defined(BACKEND_SCOREP) && !defined(BACKEND_VTRACE)
+#define BACKEND_VTRACE
+#endif
+
+#if defined(BACKEND_SCOREP) && defined(BACKEND_VTRACE)
+#error "Cannot compile for both VT and Score-P at the same time!\n"
+#endif
+
+#ifdef BACKEND_SCOREP
+#include <scorep/SCOREP_MetricPlugins.h>
+#endif
+#ifdef BACKEND_VTRACE
+#include <vampirtrace/vt_plugin_cntr.h>
+#endif
+
+#ifdef BACKEND_SCOREP
+    typedef SCOREP_Metric_Plugin_MetricProperties metric_properties_t;
+    typedef SCOREP_MetricTimeValuePair timevalue_t;
+    typedef SCOREP_Metric_Plugin_Info plugin_info_type;
+#endif
+
+#ifdef BACKEND_VTRACE
+    typedef vt_plugin_cntr_metric_info metric_properties_t;
+    typedef vt_plugin_cntr_timevalue timevalue_t;
+    typedef vt_plugin_cntr_info plugin_info_type;
+#endif
+struct event {
+    int32_t node;
+    int32_t enabled;
+    void * ID;
+    size_t data_count;
+    timevalue_t *result_vector;
+    char * name;
+    int32_t fd;
+#ifdef X86_ADAPT
+    int32_t item;
+#endif
+};
+
+//TODO check init
+struct event event_list[512];
+int32_t event_list_size;
+int32_t node_num;
+int32_t cpus;
+
+#if 0
+int32_t init(void);
+void fini(void);
+metric_properties_t * get_event_info(char * __event_name);
+int32_t add_counter(char * event_name);
+uint64_t get_all_values(int32_t id, timevalue_t **result);
+#endif
