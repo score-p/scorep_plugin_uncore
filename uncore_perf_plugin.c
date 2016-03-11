@@ -1,8 +1,30 @@
 /*
-   libupe_plugin.so,
-   a library to count Uncore events on a SandyBridge E processor and others for Score-P.
-   Copyright (C) 2015 TU Dresden, ZIH
+ * Copyright (c) 2016, Technische Universität Dresden, Germany
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification, are permitted
+ * provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of conditions
+ *    and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions
+ *    and the following disclaimer in the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse
+ *    or promote products derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+ * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -49,13 +71,13 @@ static inline int sys_perf_event_open(struct perf_event_attr *attr, int cpu) {
 }
 
 static size_t parse_buffer_size(const char *s) {
-	char *tmp = NULL;
-	size_t size;
+    char *tmp = NULL;
+    size_t size;
 
-	// parse number part
-	size = strtoll(s, &tmp, 10);
+    // parse number part
+    size = strtoll(s, &tmp, 10);
 
-	if (size == 0) {
+    if (size == 0) {
         fprintf(stderr, "Failed to parse buffer size ('%s'), using default %zu\n", s, DEFAULT_BUF_SIZE);
         return DEFAULT_BUF_SIZE;
     }
@@ -64,7 +86,7 @@ static size_t parse_buffer_size(const char *s) {
     while(*tmp == ' ') tmp++;
 
     switch(*tmp) {
-        case 'G': 
+        case 'G':
             size *= 1024;
             // fall through
         case 'M':
@@ -75,9 +97,9 @@ static size_t parse_buffer_size(const char *s) {
             // fall through
         default:
             break;
-	}
+    }
 
-	return size;
+    return size;
 }
 
 /**
@@ -159,15 +181,15 @@ int32_t init(void) {
 
     cpus = sysconf(_SC_NPROCESSORS_CONF);
 
-	ret = pfm_initialize();
-	if (ret != PFM_SUCCESS) {
+    ret = pfm_initialize();
+    if (ret != PFM_SUCCESS) {
         fprintf(stderr, "cannot initialize library: %s\n", pfm_strerror(ret));
         return -1;
     }
 
 #ifdef X86_ADAPT
     ret = x86a_wrapper_init();
-	if (ret) {
+    if (ret) {
         fprintf(stderr, "cannot initialize x86 adapt wrapper\n");
         return -1;
     }
@@ -204,12 +226,12 @@ metric_properties_t * get_event_info(char * __event_name)
 #else
     ret = pfm_get_os_event_encoding(event_name, PFM_PLM0 | PFM_PLM3, PFM_OS_PERF_EVENT, &enc);
 #endif
-	if (ret != PFM_SUCCESS) {
+    if (ret != PFM_SUCCESS) {
         fprintf(stderr, "Failed to encode event: %s\n", event_name);
         fprintf(stderr, "%s\n", pfm_strerror(ret));
         return NULL;
     }
-    
+
     for (int node=0;node<node_num;node++) {
         /* create event name */
         event_list[event_list_size].node = node;
@@ -280,7 +302,7 @@ metric_properties_t * get_event_info(char * __event_name)
 void fini(void) {
     fprintf(stderr, "starting finishing\n");
     counter_enabled = 0;
-    
+
     pthread_join(thread, NULL);
 
     for (int i=0;i<event_list_size;i++) {
@@ -406,9 +428,9 @@ uint64_t get_all_values(int32_t id, timevalue_t **result) {
     counter_enabled = 0;
     pthread_join(thread, NULL);
 
-	*result = event_list[id].result_vector;
+    *result = event_list[id].result_vector;
 
-	return event_list[id].data_count;
+    return event_list[id].data_count;
 }
 
 #ifdef BACKEND_SCOREP
