@@ -37,6 +37,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <sys/time.h>
 
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
@@ -49,11 +50,13 @@
 #endif
 
 
-static pthread_t thread;
-static int counter_enabled;
+static pthread_t threads[MAX_EVENTS] = {0};
+static int thread_enabled[MAX_EVENTS] = {0};
 static int is_thread_created = 0;
-static int is_sorted = 0;
 static char vt_sep = '#';
+static int ht_enabled;
+static struct event event_list[MAX_EVENTS] = {0};
+static int32_t event_list_size;
 
 static uint64_t (*wtime)(void) = NULL;
 
@@ -100,6 +103,21 @@ static size_t parse_buffer_size(const char *s) {
     }
 
     return size;
+}
+
+/* hyperthreading is disabled if if the thread_siblings_list is only 2 bytes, 0 and EOF */
+static int is_ht_enabled(void) {
+    int fd = open("/sys/devices/system/cpu/cpu0/topology/thread_siblings_list", O_RDONLY);
+    char buf[64] = {0};
+    if (fd < 0) {
+        return -1;
+    }
+    ssize_t count = read(fd, buf, 64);
+    switch (count) {
+        case 0: return -1;
+        case 2: return 0;
+        default: return 1;
+    }
 }
 
 /**
@@ -180,6 +198,11 @@ int32_t init(void) {
 #endif
 
     cpus = sysconf(_SC_NPROCESSORS_CONF);
+    ht_enabled = is_ht_enabled();
+    if (ht_enabled == -1) {
+        fprintf(stderr, "could not determine if hyperthreading is enabled\n");
+        return -1;
+    }
 
     ret = pfm_initialize();
     if (ret != PFM_SUCCESS) {
@@ -199,12 +222,32 @@ int32_t init(void) {
     return 0;
 }
 
+static int32_t get_scatter_id(char * event_name) {
+    static int32_t scatter_id = 0;
+    int32_t phys_cpus; /* physical cpus per node */
+    if (ht_enabled) {
+        phys_cpus = cpus / 2 / node_num;
+    }
+    else {
+        phys_cpus = cpus / node_num;
+    }
+    /* wrap around scatter id */
+    scatter_id = scatter_id % phys_cpus;
+    /* assign cbox event to correponding core */
+    char * unc_cbo = strstr(event_name, "unc_cbo");
+    if (unc_cbo !=NULL) {
+        return atoi(unc_cbo + strlen("unc_cbo"));
+    }
+    return scatter_id++;
+}
+
 metric_properties_t * get_event_info(char * __event_name)
 {
     int ret;
     char * fstr = NULL;
     char buf[1024];
     char * event_name = strdup(__event_name);
+    int32_t scatter_id;
 
 #ifdef X86_ADAPT
     pfm_pmu_encode_arg_t enc = {0};
@@ -232,9 +275,12 @@ metric_properties_t * get_event_info(char * __event_name)
         return NULL;
     }
 
+    scatter_id = get_scatter_id(event_name);
+
     for (int node=0;node<node_num;node++) {
         /* create event name */
         event_list[event_list_size].node = node;
+        event_list[event_list_size].scatter_id = scatter_id;
         sprintf(buf, "Package: %d Event: %s", node, fstr);
         event_list[event_list_size].name = strdup(buf);
 
@@ -245,23 +291,31 @@ metric_properties_t * get_event_info(char * __event_name)
             return NULL;
         }
 
+        /* we search for the nth cpu on the node to distribute the sampling overhead across multiple cpus */
+        int32_t node_cpu = 0;
         for(int i=0;i<cpus;i++) {
             if(x86_energy_node_of_cpu(i) == node) {
+                if (node_cpu == event_list[event_list_size].scatter_id) {
+                    event_list[event_list_size].cpu = i;
 #ifdef X86_ADAPT
-                int32_t ret = x86a_setup_counter(&(event_list[event_list_size]), &enc, i);
-                if (ret) {
-                    fprintf(stderr, "Failed to set up the counter\n");
-                    return NULL;
+                    int32_t ret = x86a_setup_counter(&(event_list[event_list_size]), &enc, i);
+                    if (ret) {
+                        fprintf(stderr, "Failed to set up the counter\n");
+                        return NULL;
+                    }
+    #else
+                    int fd = sys_perf_event_open(&attr, node_cpu);
+                    if (fd < 0) {
+                        fprintf(stderr, "Failed to get file descriptor\n");
+                        return NULL;
+                    }
+                    event_list[event_list_size].fd = fd;
+    #endif
+                    break;
                 }
-#else
-                int fd = sys_perf_event_open(&attr, i);
-                if (fd < 0) {
-                    fprintf(stderr, "Failed to get file descriptor\n");
-                    return NULL;
+                else {
+                    node_cpu++;
                 }
-                event_list[event_list_size].fd = fd;
-#endif
-                break;
             }
         }
         event_list_size++;
@@ -274,15 +328,12 @@ metric_properties_t * get_event_info(char * __event_name)
       return NULL;
     }
 
-    //TODO fix me
-    int i =0;
-    for (i=0;i<node_num;i++) {
+    for (int i=0;i<node_num;i++) {
     /* if the description is null it should be considered the end */
         return_values[i].name = strdup(event_list[event_list_size - node_num + i].name);
         return_values[i].unit = NULL;
 #ifdef BACKEND_SCOREP
         return_values[i].description = NULL;
-        return_values[i].mode        = SCOREP_METRIC_MODE_ACCUMULATED_LAST;
         return_values[i].mode        = SCOREP_METRIC_MODE_ACCUMULATED_START;
         return_values[i].value_type  = SCOREP_METRIC_VALUE_UINT64;
         return_values[i].base        = SCOREP_METRIC_BASE_DECIMAL;
@@ -294,16 +345,19 @@ metric_properties_t * get_event_info(char * __event_name)
 #endif
     }
     /* Last element empty */
-    return_values[i].name = NULL;
+    return_values[node_num].name = NULL;
 
     return return_values;
 }
 
 void fini(void) {
-    fprintf(stderr, "starting finishing\n");
-    counter_enabled = 0;
-
-    pthread_join(thread, NULL);
+    /* disable and join threads */
+    for (int i=0;i<MAX_EVENTS;i++) {
+        thread_enabled[i] = 0;
+    }
+    for (int i=0;i<MAX_EVENTS;i++) {
+        pthread_join(threads[i], NULL);
+    }
 
     for (int i=0;i<event_list_size;i++) {
         close(event_list[i].fd);
@@ -313,23 +367,21 @@ void fini(void) {
 #ifdef X86_ADAPT
     x86a_wrapper_fini();
 #endif
-
-    fprintf(stderr, "finishing done\n");
 }
 
-static inline uint64_t uncore_perf_read(int id) {
+static inline uint64_t uncore_perf_read(struct event *evt) {
     uint64_t data;
     ssize_t ret;
 #ifdef X86_ADAPT
-    ret = x86_adapt_get_setting(event_list[id].fd, event_list[id].item, &data);
+    ret = x86_adapt_get_setting(evt->fd, evt->item, &data);
     if (!ret) {
-        fprintf(stderr, "Error while reading event %s\n", event_list[id].name);
+        fprintf(stderr, "Error while reading event %s\n", evt->name);
         return 0;
     }
 #else
-    ret = read(event_list[id].fd, &data, sizeof(data));
+    ret = read(evt->fd, &data, sizeof(data));
     if (ret != sizeof(data)) {
-        fprintf(stderr, "Error while reading event %s\n", event_list[id].name);
+        fprintf(stderr, "Error while reading event %s\n", evt->name);
         fprintf(stderr, "%s\n",strerror(errno));
         return 0;
     }
@@ -337,38 +389,64 @@ static inline uint64_t uncore_perf_read(int id) {
     return data;
 }
 
-void * thread_report(void * ignore) {
-    uint64_t timestamp, timestamp2;
-    size_t num_buf_elems = buf_size/sizeof(timevalue_t);
-    counter_enabled = 1;
+static inline uint64_t get_time()
+{
+  struct timeval tv;
+  gettimeofday(&tv,NULL);
+  return tv.tv_usec+tv.tv_sec*1000000;
+}
 
-    while (counter_enabled) {
-        int i = 0;
+void * thread_report(void * _cpu) {
+    int32_t cpu = (int32_t) _cpu;
+    uint64_t timestamp, timestamp2;
+    uint64_t time_in_us,time_next_us = 0;
+    size_t num_buf_elems = buf_size/sizeof(timevalue_t);
+    struct event* local_event[MAX_EVENTS] = {0};
+    int32_t local_event_size = 0;
+
+    /* pin thread to cpu */
+    cpu_set_t cpu_mask;
+    CPU_ZERO(&cpu_mask);
+    CPU_SET(cpu, &cpu_mask);
+    sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask);
+
+    /* copy local events */
+    for (int i = 0; i < event_list_size; i++) {
+        if (event_list[i].cpu == cpu) {
+            local_event[local_event_size] = &(event_list[i]);
+            local_event_size++;
+        }
+    }
+
+    while (thread_enabled[cpu]) {
         if (wtime == NULL)
             return NULL;
         /* measure time for each msr read */
-        for (i = 0; i < event_list_size; i++) {
-            if (event_list[i].enabled) {
-                if (event_list[i].data_count >= num_buf_elems) {
-                        event_list[i].enabled = 0;
+        for (int i = 0; i < local_event_size; i++) {
+            if (local_event[i]->enabled) {
+                if (local_event[i]->data_count >= num_buf_elems) {
+                        local_event[i]->enabled = 0;
                         fprintf(stderr, "Buffer reached maximum %zuB. Loosing events.\n", (buf_size));
                         fprintf(stderr, "Set UPE_BUF_SIZE environment variable to increase buffer size\n");
                     }
                 else {
                     /* measure time and read value */
                     timestamp = wtime();
-                    event_list[i].result_vector[event_list[i].data_count].value = uncore_perf_read(i);
+                    local_event[i]->result_vector[local_event[i]->data_count].value = uncore_perf_read(local_event[i]);
                     timestamp2 = wtime();
-                    event_list[i].result_vector[event_list[i].data_count].timestamp =
+                    local_event[i]->result_vector[local_event[i]->data_count].timestamp =
                         timestamp + ((timestamp2 - timestamp) >> 1);
-                    event_list[i].data_count++;
+                    local_event[i]->data_count++;
                 }
             }
         }
-        usleep(interval_us);
+        time_in_us = get_time();
+        time_next_us = time_in_us + interval_us - time_in_us%(interval_us);
+        usleep(time_next_us-time_in_us);
     }
     return NULL;
 }
+
 
 int32_t add_counter(char * event_name) {
 #ifdef X86_ADAPT
@@ -381,23 +459,17 @@ int32_t add_counter(char * event_name) {
         once = 1;
     }
 #endif
-    /* sort the events by package id */
-    if (!is_sorted) {
-        struct event tmp;
-        for (int i=event_list_size;i>1;i--) {
-            for (int j=0; j<i-1; j++) {
-                if (event_list[j].node > event_list[j+1].node) {
-                    memcpy(&tmp, &event_list[j], sizeof(struct event));
-                    memcpy(&event_list[j], &event_list[j+1], sizeof(struct event));
-                    memcpy(&event_list[j+1], &tmp, sizeof(struct event));
+    if (!is_thread_created) {
+        for (int i=0;i<event_list_size;i++) {
+            int cpu = event_list[i].cpu;
+            if (!thread_enabled[cpu]) {
+                if (pthread_create(&(threads[cpu]), NULL, &thread_report, (void *) cpu) !=0) {
+                    fprintf(stderr, "Failed to create sampling thread\n");
+                    return -1;
                 }
+                thread_enabled[cpu] = 1;
             }
         }
-        is_sorted=1;
-    }
-
-    if (!is_thread_created) {
-        pthread_create(&thread, NULL, &thread_report, NULL);
         is_thread_created=1;
     }
 
@@ -425,8 +497,7 @@ int disable_counter(int ID) {
 }
 
 uint64_t get_all_values(int32_t id, timevalue_t **result) {
-    counter_enabled = 0;
-    pthread_join(thread, NULL);
+    event_list[id].enabled = 0;
 
     *result = event_list[id].result_vector;
 

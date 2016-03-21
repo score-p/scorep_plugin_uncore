@@ -33,6 +33,8 @@
 #include <x86_adapt.h>
 #include "x86a_wrapper.h"
 
+static int32_t initialized = 0;
+
 regex_t cbo_regex, ha_regex, imc_regex, qpi_regex, r3qpi_regex, sbo_regex;
 
 
@@ -247,6 +249,10 @@ static inline void __multi_box(struct unc_box** _box, int32_t* box_size, char* b
 int32_t x86a_wrapper_init(void)
 {
     int32_t ret;
+    if (initialized) {
+        return 0;
+    }
+
     if (x86_adapt_init()) {
         fprintf(stderr, "Could not initialize x86_adapt library");
         return -1;
@@ -318,6 +324,8 @@ int32_t x86a_wrapper_init(void)
     __reset_box(r2pcibox);
     __reset_box(r3qpibox);
 
+    initialized = 1;
+
     return x86_adapt_put_all_devices(X86_ADAPT_DIE);
 }
 
@@ -340,6 +348,10 @@ static inline void __free_box(struct unc_box *box, int32_t box_size)
 
 void x86a_wrapper_fini(void)
 {
+    if (!initialized) {
+        return;
+    }
+
     __free_box(ubox, ubox_size);
     __free_box(pcubox, pcubox_size);
     __free_box(sbox, sbox_size);
@@ -360,6 +372,7 @@ void x86a_wrapper_fini(void)
     regfree(&sbo_regex);
 
     x86_adapt_finalize();
+    initialized = 0;
 }
 
 static inline int32_t __match_box(struct unc_box** ret_box, const char* pfm_name,
@@ -501,7 +514,6 @@ int32_t x86a_setup_counter(struct event* evt, pfm_pmu_encode_arg_t* enc, int32_t
     }
     box->norm[ctr].used = 1;
     evt->item = box->norm[ctr].ctr;
-    fprintf(stderr, "node %d, items %d\n", evt->node, evt->item);
 
     switch (enc->count) {
         case 3:

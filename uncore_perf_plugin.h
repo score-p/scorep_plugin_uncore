@@ -45,6 +45,8 @@
 #include <vampirtrace/vt_plugin_cntr.h>
 #endif
 
+#define MAX_EVENTS 512
+
 #ifdef BACKEND_SCOREP
     typedef SCOREP_Metric_Plugin_MetricProperties metric_properties_t;
     typedef SCOREP_MetricTimeValuePair timevalue_t;
@@ -58,6 +60,8 @@
 #endif
 struct event {
     int32_t node;
+    int32_t cpu;
+    int32_t scatter_id;
     int32_t enabled;
     void * ID;
     size_t data_count;
@@ -67,11 +71,8 @@ struct event {
 #ifdef X86_ADAPT
     int32_t item;
 #endif
-};
+}__attribute__((aligned(64)));
 
-//TODO check init
-struct event event_list[512];
-int32_t event_list_size;
 int32_t node_num;
 int32_t cpus;
 

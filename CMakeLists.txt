@@ -7,7 +7,7 @@ option(X86_ADAPT "Using x86 adapt instead of perf for instrumentating the perfor
 set(SCOREP_FOUND false)
 
 set(PFM_INC "" CACHE PATH "pfm include directory")
-set(PLUGIN_SOURCE uncore_perf_plugin.c x86a_wrapper.c)
+set(PLUGIN_SOURCE uncore_perf_plugin.c)
 set(PLUGIN_LINK_LIBS pthread m)
 
 
@@ -38,6 +38,7 @@ if(X86_ADAPT)
     if(X86_ADAPT_FOUND)
         include_directories(${X86_ADAPT_INC_DIR})
         add_definitions("-DX86_ADAPT")
+        set(PLUGIN_SOURCE ${PLUGIN_SOURCE} x86a_wrapper.c)
         set(PLUGIN_LINK_LIBS ${PLUGIN_LINK_LIBS} x86_adapt)
     else()
         message(SEND_ERROR "Could not find x86 adapt")
