@@ -351,12 +351,17 @@ metric_properties_t * get_event_info(char * __event_name)
 }
 
 void fini(void) {
+    int was_enabled[MAX_EVENTS] = {0};
+    
     /* disable and join threads */
     for (int i=0;i<MAX_EVENTS;i++) {
+        was_enabled[i] = thread_enabled[i];
         thread_enabled[i] = 0;
     }
     for (int i=0;i<MAX_EVENTS;i++) {
-        pthread_join(threads[i], NULL);
+        if (was_enabled[i]) {
+            pthread_join(threads[i], NULL);
+        }
     }
 
     for (int i=0;i<event_list_size;i++) {
@@ -463,11 +468,11 @@ int32_t add_counter(char * event_name) {
         for (int i=0;i<event_list_size;i++) {
             int cpu = event_list[i].cpu;
             if (!thread_enabled[cpu]) {
+                thread_enabled[cpu] = 1;
                 if (pthread_create(&(threads[cpu]), NULL, &thread_report, (void *) cpu) !=0) {
                     fprintf(stderr, "Failed to create sampling thread\n");
                     return -1;
                 }
-                thread_enabled[cpu] = 1;
             }
         }
         is_thread_created=1;
