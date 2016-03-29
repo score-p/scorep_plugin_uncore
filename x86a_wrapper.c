@@ -240,7 +240,7 @@ static inline void __multi_box(struct unc_box** _box, int32_t* box_size, char* b
 #define __reset_box(box) \
     do { \
         for (int32_t i=0; i<box ## _size; i++) { \
-            ret = x86_adapt_set_setting(all_nodes, box[i].ctl, 0x3); \
+            ret = x86_adapt_set_setting(node, box[i].ctl, 0x3); \
             check_return(ret, "Failed to reset " #box "\n"); \
         } \
     } while (0)
@@ -302,31 +302,35 @@ int32_t x86a_wrapper_init(void)
     /* r3qpibox */
     __multi_box(&r3qpibox, &r3qpibox_size, "R3QPI0_Link_", __NONE, __MULTI);
     comp_boxreg(r3qpi);
+    
+    for (int32_t i=0; i < node_num; i++) {
+        int32_t node = x86_adapt_get_device(X86_ADAPT_DIE, i);
+        if (node < 0) {
+            fprintf(stderr, "Could not get fd on node %d for resetting the boxes\n", i);
+            return -1;
+        }
+        /* freeze counter */
+        ret = x86_adapt_set_setting(node, global_ctl, (1u << 31u));
+        check_return(ret, "Failed to freeze counter\n");
 
-    int32_t all_nodes = x86_adapt_get_all_devices(X86_ADAPT_DIE);
-    if (all_nodes < 0) {
-        fprintf(stderr, "Could not get fd for resetting the boxes\n");
-        return -1;
+        /* reset boxes */
+        __reset_box(pcubox);
+        __reset_box(sbox);
+        __reset_box(cbox);
+        __reset_box(habox);
+        __reset_box(imc0box);
+        __reset_box(imc1box);
+        __reset_box(irpbox);
+        __reset_box(qpibox);
+        __reset_box(r2pcibox);
+        __reset_box(r3qpibox);
+
+        x86_adapt_put_device(X86_ADAPT_DIE, i);
     }
-    /* freeze counter */
-    ret = x86_adapt_set_setting(all_nodes, global_ctl, (1u << 31u));
-    check_return(ret, "Failed to freeze counter\n");
-
-    /* reset boxes */
-    __reset_box(pcubox);
-    __reset_box(sbox);
-    __reset_box(cbox);
-    __reset_box(habox);
-    __reset_box(imc0box);
-    __reset_box(imc1box);
-    __reset_box(irpbox);
-    __reset_box(qpibox);
-    __reset_box(r2pcibox);
-    __reset_box(r3qpibox);
 
     initialized = 1;
 
-    return x86_adapt_put_all_devices(X86_ADAPT_DIE);
+    return 0;
 }
 
 static inline void __free_box(struct unc_box *box, int32_t box_size)
@@ -559,13 +563,16 @@ int32_t x86a_setup_counter(struct event* evt, pfm_pmu_encode_arg_t* enc, int32_t
 int32_t x86a_unfreeze_all(void) {
 
     int32_t ret;
-    int32_t all_nodes = x86_adapt_get_all_devices(X86_ADAPT_DIE);
-    if (all_nodes < 0) {
-        fprintf(stderr, "Could not get fd for resetting the boxes\n");
-        return -1;
+    for (int32_t i=0; i<node_num; i++) { 
+        int32_t node = x86_adapt_get_device(X86_ADAPT_DIE, i);
+        if (node < 0) {
+            fprintf(stderr, "Could not get fd for resetting the boxes\n");
+            return -1;
+        }
+        /* freeze counter */
+        ret = x86_adapt_set_setting(node, global_ctl, (1u << 29u));
+        check_return(ret, "Failed to unfreeze all counter\n");
+        x86_adapt_put_device(X86_ADAPT_DIE, i);
     }
-    /* freeze counter */
-    ret = x86_adapt_set_setting(all_nodes, global_ctl, (1u << 29u));
-    check_return(ret, "Failed to unfreeze all counter\n");
-    return x86_adapt_put_all_devices(X86_ADAPT_DIE);
+    return 0;
 }
