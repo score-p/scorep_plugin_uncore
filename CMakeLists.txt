@@ -3,6 +3,7 @@ project(upe_plugin)
 
 option(BACKEND_SCOREP "Build plugin using scorep(ON) or vampirtrace(OFF)" ON)
 option(X86_ADAPT "Using x86 adapt instead of perf for instrumentating the performance counters" OFF)
+option(METRIC_SYNC "Setting the plugin metric to strictly synchronous (OFF)" OFF)
 
 set(SCOREP_FOUND false)
 
@@ -10,6 +11,9 @@ set(PFM_INC "" CACHE PATH "pfm include directory")
 set(PLUGIN_SOURCE uncore_perf_plugin.c)
 set(PLUGIN_LINK_LIBS pthread m)
 
+if(METRIC_SYNC)
+    add_definitions("-DMETRIC_SYNC")
+endif()
 
 if(BACKEND_SCOREP)
     include(common/FindScorep.cmake)

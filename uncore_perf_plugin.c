@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <sys/time.h>
+#include <stdbool.h>
 
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
@@ -394,6 +395,7 @@ static inline uint64_t uncore_perf_read(struct event *evt) {
     return data;
 }
 
+#ifndef METRIC_SYNC
 static inline uint64_t get_time()
 {
   struct timeval tv;
@@ -451,6 +453,7 @@ void * thread_report(void * _cpu) {
     }
     return NULL;
 }
+#endif
 
 
 int32_t add_counter(char * event_name) {
@@ -464,6 +467,7 @@ int32_t add_counter(char * event_name) {
         once = 1;
     }
 #endif
+#ifndef METRIC_SYNC
     if (!is_thread_created) {
         for (int i=0;i<event_list_size;i++) {
             int cpu = event_list[i].cpu;
@@ -477,6 +481,7 @@ int32_t add_counter(char * event_name) {
         }
         is_thread_created=1;
     }
+#endif
 
     for (int i=0;i<event_list_size;i++) {
         if (!strcmp(event_name, event_list[i].name)) {
@@ -501,6 +506,15 @@ int disable_counter(int ID) {
     return 0;
 }
 
+#ifdef METRIC_SYNC
+bool get_optional_value(int32_t id, uint64_t *value) {
+    if (sched_getcpu() == event_list[id].cpu) {
+        *value = uncore_perf_read(&event_list[id]);
+        return true;
+    }
+    return false;
+}
+#else
 uint64_t get_all_values(int32_t id, timevalue_t **result) {
     event_list[id].enabled = 0;
 
@@ -508,6 +522,7 @@ uint64_t get_all_values(int32_t id, timevalue_t **result) {
 
     return event_list[id].data_count;
 }
+#endif
 
 #ifdef BACKEND_SCOREP
 SCOREP_METRIC_PLUGIN_ENTRY( upe_plugin )
@@ -519,11 +534,16 @@ vt_plugin_cntr_info get_info()
     plugin_info_type info = {0};
 #ifdef BACKEND_SCOREP
     info.plugin_version               = SCOREP_METRIC_PLUGIN_VERSION;
+    info.initialize                   = init;
+#ifdef METRIC_SYNC
+    info.run_per                      = SCOREP_METRIC_PER_THREAD;
+    info.sync                         = SCOREP_METRIC_SYNC;
+#else
     info.run_per                      = SCOREP_METRIC_PER_HOST;
     info.sync                         = SCOREP_METRIC_ASYNC;
     info.delta_t                      = UINT64_MAX;
-    info.initialize                   = init;
     info.set_clock_function           = set_pform_wtime_function;
+#endif
 #endif
 
 #ifdef BACKEND_VTRACE
@@ -535,7 +555,11 @@ vt_plugin_cntr_info get_info()
 #endif
     info.add_counter              = add_counter;
     info.get_event_info           = get_event_info;
+#ifdef METRIC_SYNC
+    info.get_optional_value        = get_optional_value;
+#else
     info.get_all_values           = get_all_values;
+#endif
     info.finalize                 = fini;
     return info;
 }

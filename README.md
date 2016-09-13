@@ -3,6 +3,7 @@
 > *Note:*
 >
 > This is a plugin for couting performance events asynchronously on every cpu package per system.
+> Additionally the plugin offers a synchrouns mode under the assumptions that the threads are pinned.
 > The plugin was initially created to count uncore performance events but it can be used for every
 > event exported by papi\_native\_avail.
 > Optionally x86_adapt can be used to count uncore performance events instead of perf.
@@ -51,6 +52,8 @@ Optional:
         cmake .. -DPFM_INC=~/papi/src/libpfm4/include
 
     Optionally x86_adapt can be used with the `-DX86_ADAPT` CMake flag.
+
+    For compiling the plugin with synchronous mode add the `-DMETRIC_SYNC` CMake flag.
 
 3. Invoke make
 
