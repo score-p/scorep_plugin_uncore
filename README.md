@@ -1,16 +1,16 @@
-#Uncore Performance Events Counter Plugin
+# Uncore Performance Events Counter Plugin
 
 > *Note:*
 >
-> This is a plugin for couting performance events asynchronously on every cpu package per system.
-> Additionally the plugin offers a synchrouns mode under the assumptions that the threads are pinned.
+> This is a plugin for counting performance events asynchronously on every CPU package per system.
+> Additionally the plugin offers a synchronous mode under the assumptions that the threads are pinned.
 > The plugin was initially created to count uncore performance events but it can be used for every
 > event exported by papi\_native\_avail.
 > Optionally x86_adapt can be used to count uncore performance events instead of perf.
 
-##Compilation and Installation
+## Compilation and Installation
 
-###Prerequisites
+### Prerequisites
 
 To compile this plugin, you need:
 
@@ -28,7 +28,7 @@ Optional:
 
 * x86_adapt (https://github.com/tud-zih-energy/x86_adapt)
 
-###Building
+### Building
 
 1. Create a build directory
 
@@ -38,8 +38,8 @@ Optional:
 2. Invoke CMake
 
     Specify the path to the PAPI headers with `-DPFM_INC` if they're not in the default path.
-    Some additional papi headers are required, which are not installed by default.
-    You need to copy the following header files to your papi include directory:
+    Some additional PAPI headers are required, which are not installed by default.
+    You need to copy the following header files to your PAPI include directory:
 
         <papi src dir>/src/libpfm4/include
 
@@ -64,10 +64,10 @@ Optional:
 
         export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`
 
-##Usage
+## Usage
 
-This plugin uses papi for parsing the events and utilises perf for counting uncore performance
-events. For couting uncore performance events, priviliged rights or reducing the paranoid level is
+This plugin uses PAPI for parsing the events and utilizes perf for counting uncore performance
+events. For counting uncore performance events, privileged rights or reducing the paranoid level is
 required, e.g.
 
     sudo sysctl kernel.perf_event_paranoid=0
@@ -88,7 +88,7 @@ If you're facing an error message like
 you probably missed a needed argument for the specific counter (in this example `:VN0` or `:VN1` has
 to be appended to the end of the counter name).
 
-###Environment variables
+### Environment variables
 
 * `UPE_INTERVAL_US` (default=100000)
 
@@ -103,11 +103,11 @@ to be appended to the end of the counter name).
 
 * `UPE_BUF_SIZE` (default=4194304 (4Mib))
 
-    The size of the buffer for storing elements. A lower size means leasser overhead. But a to small
+    The size of the buffer for storing elements. A lower size means lesser overhead. But a to small
     buffer might be not capable of storing all events. If this is the case, then a error message
     will be printed to `stderr`.
 
-###If anything fails
+### If anything fails
 
 1. Check whether the plugin library can be loaded from the `LD_LIBRARY_PATH`.
 
@@ -115,6 +115,6 @@ to be appended to the end of the counter name).
 
 3. Write a mail to the author.
 
-##Author
+## Author
 
 * Michael Werner (michael.werner3 at tu-dresden dot de)
