@@ -71,7 +71,7 @@ char* env(const char* name)
 {
     int name_len = strlen(name);
     int scorep_len = strlen("SCOREP_METRIC_");
-    char* scorep_name = malloc((name_len + scorep_len) * sizeof(char));
+    char* scorep_name = malloc((name_len + scorep_len + 1) * sizeof(char));
     sprintf(scorep_name, "%s%s", "SCOREP_METRIC_", name);
     char* ret = getenv(scorep_name);
     if (ret == NULL)
