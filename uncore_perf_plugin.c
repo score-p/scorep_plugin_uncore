@@ -67,6 +67,18 @@ static uint64_t (*wtime)(void) = NULL;
 static size_t buf_size = DEFAULT_BUF_SIZE; // 4MB per Event per Thread
 static int interval_us = 100000;           // 100ms
 
+char* env(const char* name)
+{
+    int name_len = strlen(name);
+    int scorep_len = strlen("SCOREP_METRIC_");
+    char* scorep_name = malloc((name_len + scorep_len) * sizeof(char));
+    char* ret = getenv(scorep_name);
+    if (ret == NULL)
+    {
+        ret = getenv(name);
+    }
+    return ret;
+}
 void set_pform_wtime_function(uint64_t (*pform_wtime)(void))
 {
     wtime = pform_wtime;
@@ -191,7 +203,7 @@ int32_t init(void)
     /* get number of packages */
     node_num = x86_energy_get_nr_packages();
 
-    env_string = getenv("UPE_INTERVAL_US");
+    env_string = env("UPE_INTERVAL_US");
     if (env_string == NULL)
         interval_us = 100000;
     else
@@ -204,7 +216,7 @@ int32_t init(void)
         }
     }
 
-    env_string = getenv("UPE_BUF_SIZE");
+    env_string = env("UPE_BUF_SIZE");
     if (env_string != NULL)
     {
         buf_size = parse_buffer_size(env_string);
@@ -217,7 +229,7 @@ int32_t init(void)
     }
 
 #if defined(BACKEND_SCOREP)
-    env_string = getenv("UPE_SEP");
+    env_string = env("UPE_SEP");
     if (env_string != NULL)
     {
         vt_sep = env_string[0];
