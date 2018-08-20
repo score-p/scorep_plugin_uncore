@@ -332,17 +332,17 @@ int32_t x86a_wrapper_init(void)
             fprintf(stderr, "Failed to freeze counter\n");
             if (ret == -1)
             {
-                fprintf(stderr, "Error was: %s(%d)", strerror(errno), errno);
+                fprintf(stderr, "Error was: %s(%d)\n", strerror(errno), errno);
                 return errno;
             }
             else if (ret < 0)
             {
-                fprintf(stderr, "Error was: %s(%d)", strerror(-ret), ret);
+                fprintf(stderr, "Error was: %s(%d)\n", strerror(-ret), ret);
                 return -ret;
             }
             else
             {
-                fprintf(stderr, "unexpected nr of bytes written: %d", ret);
+                fprintf(stderr, "unexpected nr of bytes written: %d\n", ret);
                 return ret;
             }
         }
@@ -632,12 +632,12 @@ int32_t x86a_unfreeze_all(void)
             fprintf(stderr, "Could not get fd for resetting the boxes\n");
             if (ret == -1)
             {
-                fprintf(stderr, "Error was: %s(%d)", strerror(errno), errno);
+                fprintf(stderr, "Error was: %s(%d)\n", strerror(errno), errno);
                 return errno;
             }
             else if (ret < 0)
             {
-                fprintf(stderr, "Error was: %s(%d)", strerror(-ret), ret);
+                fprintf(stderr, "Error was: %s(%d)\n", strerror(-ret), ret);
                 return -ret;
             }
         }
@@ -649,17 +649,17 @@ int32_t x86a_unfreeze_all(void)
             fprintf(stderr, "Failed to unfreeze counter\n");
             if (ret == -1)
             {
-                fprintf(stderr, "Error was: %s(%d)", strerror(errno), errno);
+                fprintf(stderr, "Error was: %s(%d)\n", strerror(errno), errno);
                 return errno;
             }
             else if (ret < 0)
             {
-                fprintf(stderr, "Error was: %s(%d)", strerror(-ret), ret);
+                fprintf(stderr, "Error was: %s(%d)\n", strerror(-ret), ret);
                 return -ret;
             }
             else
             {
-                fprintf(stderr, "unexpected nr of bytes written: %d", ret);
+                fprintf(stderr, "unexpected nr of bytes written: %d\n", ret);
                 return ret;
             }
         }
