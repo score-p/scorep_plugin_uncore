@@ -25,6 +25,7 @@
  * WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <errno.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -326,7 +327,25 @@ int32_t x86a_wrapper_init(void)
         }
         /* freeze counter */
         ret = x86_adapt_set_setting(node, global_ctl, (1u << 31u));
-        check_return(ret, "Failed to freeze counter\n");
+        if (ret != 8)
+        {
+            fprintf(stderr, "Failed to freeze counter\n");
+            if (ret == -1)
+            {
+                fprintf(stderr, "Error was: %s(%d)", strerror(errno), errno);
+                return errno;
+            }
+            else if (ret < 0)
+            {
+                fprintf(stderr, "Error was: %s(%d)", strerror(-ret), ret);
+                return -ret;
+            }
+            else
+            {
+                fprintf(stderr, "unexpected nr of bytes written: %d", ret);
+                return ret;
+            }
+        }
 
         /* reset boxes */
         __reset_box(pcubox);
@@ -611,11 +630,39 @@ int32_t x86a_unfreeze_all(void)
         if (node < 0)
         {
             fprintf(stderr, "Could not get fd for resetting the boxes\n");
-            return -1;
+            if (ret == -1)
+            {
+                fprintf(stderr, "Error was: %s(%d)", strerror(errno), errno);
+                return errno;
+            }
+            else if (ret < 0)
+            {
+                fprintf(stderr, "Error was: %s(%d)", strerror(-ret), ret);
+                return -ret;
+            }
         }
-        /* freeze counter */
+
+        /* unfreeze counter */
         ret = x86_adapt_set_setting(node, global_ctl, (1u << 29u));
-        check_return(ret, "Failed to unfreeze all counter\n");
+        if (ret != 8)
+        {
+            fprintf(stderr, "Failed to unfreeze counter\n");
+            if (ret == -1)
+            {
+                fprintf(stderr, "Error was: %s(%d)", strerror(errno), errno);
+                return errno;
+            }
+            else if (ret < 0)
+            {
+                fprintf(stderr, "Error was: %s(%d)", strerror(-ret), ret);
+                return -ret;
+            }
+            else
+            {
+                fprintf(stderr, "unexpected nr of bytes written: %d", ret);
+                return ret;
+            }
+        }
         x86_adapt_put_device(X86_ADAPT_DIE, i);
     }
     return 0;
