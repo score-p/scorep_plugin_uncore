@@ -8,59 +8,64 @@
  * 1. Redistributions of source code must retain the above copyright notice, this list of conditions
  *    and the following disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions
- *    and the following disclaimer in the documentation and/or other materials provided with the
- *    distribution.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+ * conditions and the following disclaimer in the documentation and/or other materials provided with
+ * the distribution.
  *
- * 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse
- *    or promote products derived from this software without specific prior written permission.
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+ * endorse or promote products derived from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
- * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+ * WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <regex.h>
 
-#include <x86_adapt.h>
 #include "x86a_wrapper.h"
+#include <x86_adapt.h>
 
 static int32_t initialized = 0;
 
 regex_t cbo_regex, ha_regex, imc_regex, qpi_regex, r3qpi_regex, sbo_regex;
 
-
-#define comp_boxreg(box) \
-    do { \
-        int32_t ret = regcomp(& box ## _regex, "unc_"#box"([[:digit:]]+)", REG_EXTENDED); \
-        if (ret) { \
-            fprintf(stderr, "failed to compile regex for box "#box); \
-            return ret; \
-        } \
-    } while(0)
-
-#define check_ptr(ptr)                                                           \
-    do {                                                                         \
-        if (ptr == NULL) {                                                       \
-            fprintf(stderr, "Failed to allocate memory in x86a_wrapper_init\n"); \
-            exit(-1);                                                           \
-        }                                                                        \
+#define comp_boxreg(box)                                                                           \
+    do                                                                                             \
+    {                                                                                              \
+        int32_t ret = regcomp(&box##_regex, "unc_" #box "([[:digit:]]+)", REG_EXTENDED);           \
+        if (ret)                                                                                   \
+        {                                                                                          \
+            fprintf(stderr, "failed to compile regex for box " #box);                              \
+            return ret;                                                                            \
+        }                                                                                          \
     } while (0)
 
-#define check_return(ret, str) \
-    do { \
-        if (ret != 8) { \
-            fprintf(stderr, str); \
-            return -1; \
-        } \
+#define check_ptr(ptr)                                                                             \
+    do                                                                                             \
+    {                                                                                              \
+        if (ptr == NULL)                                                                           \
+        {                                                                                          \
+            fprintf(stderr, "Failed to allocate memory in x86a_wrapper_init\n");                   \
+            exit(-1);                                                                              \
+        }                                                                                          \
+    } while (0)
+
+#define check_return(ret, str)                                                                     \
+    do                                                                                             \
+    {                                                                                              \
+        if (ret != 8)                                                                              \
+        {                                                                                          \
+            fprintf(stderr, str);                                                                  \
+            return -1;                                                                             \
+        }                                                                                          \
     } while (0)
 
 static inline int32_t __lookup(const char* name)
@@ -75,12 +80,12 @@ static inline int32_t __lookup(const char* name)
 #define __SINGLE 1
 #define __MULTI 2
 
-static inline void __lookup_single(struct unc_box* box, int32_t type, char* ctl,
-    char* ctr)
+static inline void __lookup_single(struct unc_box* box, int32_t type, char* ctl, char* ctr)
 {
     struct unc_pair* pair = NULL;
 
-    if (__lookup(ctl) > 0) {
+    if (__lookup(ctl) > 0)
+    {
         pair = malloc(sizeof(struct unc_pair));
         check_ptr(pair);
         pair->used = 0;
@@ -98,8 +103,7 @@ static inline void __lookup_single(struct unc_box* box, int32_t type, char* ctl,
         box->norm = pair;
 }
 
-static inline void __lookup_multi(struct unc_box* box, int32_t type, char* _ctl,
-    char* _ctr)
+static inline void __lookup_multi(struct unc_box* box, int32_t type, char* _ctl, char* _ctr)
 {
     struct unc_pair* pair = NULL;
     int32_t i = 0;
@@ -108,7 +112,8 @@ static inline void __lookup_multi(struct unc_box* box, int32_t type, char* _ctl,
     sprintf(ctl, "%s%d", _ctl, i);
     sprintf(ctr, "%s%d", _ctr, i);
 
-    while (__lookup(ctl) > 0) {
+    while (__lookup(ctl) > 0)
+    {
         pair = realloc(pair, (i + 1) * sizeof(struct unc_pair));
         check_ptr(pair);
         pair[i].used = 0;
@@ -120,11 +125,13 @@ static inline void __lookup_multi(struct unc_box* box, int32_t type, char* _ctl,
         sprintf(ctr, "%s%d", _ctr, i);
     }
 
-    if (type == __FIXED) {
+    if (type == __FIXED)
+    {
         box->fixed = pair;
         box->fixed_size = i;
     }
-    else {
+    else
+    {
         box->norm = pair;
         box->norm_size = i;
     }
@@ -137,16 +144,20 @@ static inline void __duplicate_box(struct unc_box** _box, int32_t size)
         return;
     box = realloc(*_box, sizeof(struct unc_box) * size * node_num);
     check_ptr(box);
-    for (int32_t i=1; i < node_num; i++) {
-        for (int32_t j=0; j < size; j++) {
+    for (int32_t i = 1; i < node_num; i++)
+    {
+        for (int32_t j = 0; j < size; j++)
+        {
             int32_t k = i * size + j;
             memcpy(&(box[k]), &(box[j]), sizeof(struct unc_box));
-            if (box[k].fixed_size > 0) {
+            if (box[k].fixed_size > 0)
+            {
                 box[k].fixed = malloc(sizeof(struct unc_pair) * box[k].fixed_size);
                 check_ptr(box[k].fixed);
                 memcpy(box[k].fixed, box[j].fixed, sizeof(struct unc_pair) * box[j].fixed_size);
             }
-            if (box[k].norm_size > 0) {
+            if (box[k].norm_size > 0)
+            {
                 box[k].norm = malloc(sizeof(struct unc_pair) * box[k].norm_size);
                 check_ptr(box[k].norm);
                 memcpy(box[k].norm, box[j].norm, sizeof(struct unc_pair) * box[j].norm_size);
@@ -156,15 +167,15 @@ static inline void __duplicate_box(struct unc_box** _box, int32_t size)
     *_box = box;
 }
 
-
 static inline void __single_box(struct unc_box** _box, int32_t* box_size, char* box_prefix,
-    int32_t fixed_type, int32_t norm_type)
+                                int32_t fixed_type, int32_t norm_type)
 {
     struct unc_box* box = NULL;
     char ci_name[64], ctl[64], ctr[64];
     sprintf(ci_name, "%s%s", box_prefix, "_PMON_STATUS");
     *box_size = 0;
-    if (__lookup(ci_name) > 0) {
+    if (__lookup(ci_name) > 0)
+    {
         box = malloc(sizeof(struct unc_box));
         check_ptr(box);
         box->status = __lookup(ci_name);
@@ -172,8 +183,7 @@ static inline void __single_box(struct unc_box** _box, int32_t* box_size, char* 
         box->ctl = __lookup(ci_name);
         sprintf(ci_name, "%s%s", box_prefix, "_PMON_FILTER");
         box->filter0 = __lookup(ci_name);
-        box->filter1 =
-        box->fixed_size = 0;
+        box->filter1 = box->fixed_size = 0;
         box->norm_size = 0;
         sprintf(ctl, "%s%s", box_prefix, "_PMON_FIXED_CTL");
         sprintf(ctr, "%s%s", box_prefix, "_PMON_FIXED_CTR");
@@ -194,16 +204,16 @@ static inline void __single_box(struct unc_box** _box, int32_t* box_size, char* 
     }
 }
 
-
 static inline void __multi_box(struct unc_box** _box, int32_t* box_size, char* box_prefix,
-    int32_t fixed_type, int32_t norm_type)
+                               int32_t fixed_type, int32_t norm_type)
 {
     int32_t i = 0;
     struct unc_box* box = NULL;
     char ci_name[64], ctl[64], ctr[64];
     sprintf(ci_name, "%s%d%s", box_prefix, i, "_PMON_STATUS");
-    while (__lookup(ci_name) > 0) {
-        box = realloc(box, (i+1) * sizeof(struct unc_box));
+    while (__lookup(ci_name) > 0)
+    {
+        box = realloc(box, (i + 1) * sizeof(struct unc_box));
         check_ptr(box);
 
         box[i].status = __lookup(ci_name);
@@ -237,23 +247,26 @@ static inline void __multi_box(struct unc_box** _box, int32_t* box_size, char* b
     __duplicate_box(_box, *box_size);
 }
 
-#define __reset_box(box) \
-    do { \
-        for (int32_t i=0; i<box ## _size; i++) { \
-            ret = x86_adapt_set_setting(node, box[i].ctl, 0x3); \
-            check_return(ret, "Failed to reset " #box "\n"); \
-        } \
+#define __reset_box(box)                                                                           \
+    do                                                                                             \
+    {                                                                                              \
+        for (int32_t i = 0; i < box##_size; i++)                                                   \
+        {                                                                                          \
+            ret = x86_adapt_set_setting(node, box[i].ctl, 0x3);                                    \
+            check_return(ret, "Failed to reset " #box "\n");                                       \
+        }                                                                                          \
     } while (0)
-
 
 int32_t x86a_wrapper_init(void)
 {
     int32_t ret;
-    if (initialized) {
+    if (initialized)
+    {
         return 0;
     }
 
-    if (x86_adapt_init()) {
+    if (x86_adapt_init())
+    {
         fprintf(stderr, "Could not initialize x86_adapt library");
         return -1;
     }
@@ -290,7 +303,7 @@ int32_t x86a_wrapper_init(void)
     /* irpbox */
     // NOTE: not available in papi
     __multi_box(&irpbox, &irpbox_size, "IRP", __NONE, __MULTI);
-    //comp_boxreg(irp);
+    // comp_boxreg(irp);
 
     /* qpibox */
     __multi_box(&qpibox, &qpibox_size, "QPI", __NONE, __MULTI);
@@ -302,10 +315,12 @@ int32_t x86a_wrapper_init(void)
     /* r3qpibox */
     __multi_box(&r3qpibox, &r3qpibox_size, "R3QPI0_Link_", __NONE, __MULTI);
     comp_boxreg(r3qpi);
-    
-    for (int32_t i=0; i < node_num; i++) {
+
+    for (int32_t i = 0; i < node_num; i++)
+    {
         int32_t node = x86_adapt_get_device(X86_ADAPT_DIE, i);
-        if (node < 0) {
+        if (node < 0)
+        {
             fprintf(stderr, "Could not get fd on node %d for resetting the boxes\n", i);
             return -1;
         }
@@ -333,18 +348,22 @@ int32_t x86a_wrapper_init(void)
     return 0;
 }
 
-static inline void __free_box(struct unc_box *box, int32_t box_size)
+static inline void __free_box(struct unc_box* box, int32_t box_size)
 {
-    if (box_size < 1) {
-      return;
+    if (box_size < 1)
+    {
+        return;
     }
-    for (int32_t i=0; i < box_size * node_num ; i++) {
-        if (box[i].fixed_size > 0) {
-          free(box[i].fixed);
+    for (int32_t i = 0; i < box_size * node_num; i++)
+    {
+        if (box[i].fixed_size > 0)
+        {
+            free(box[i].fixed);
         }
 
-        if(box[i].norm_size > 0) {
-          free(box[i].norm);
+        if (box[i].norm_size > 0)
+        {
+            free(box[i].norm);
         }
     }
     free(box);
@@ -352,7 +371,8 @@ static inline void __free_box(struct unc_box *box, int32_t box_size)
 
 void x86a_wrapper_fini(void)
 {
-    if (!initialized) {
+    if (!initialized)
+    {
         return;
     }
 
@@ -385,30 +405,36 @@ static inline int32_t __match_box(struct unc_box** ret_box, const char* pfm_name
 {
     int32_t ret;
     regmatch_t pmatch[2];
-    char boxnum[8] = {0};
+    char boxnum[8] = { 0 };
     ret = regexec(box_regex, pfm_name, 2, pmatch, 0);
-    if (!ret) {
-        strncpy(boxnum, pfm_name+pmatch[1].rm_so, pmatch[1].rm_eo - pmatch[1].rm_so);
+    if (!ret)
+    {
+        strncpy(boxnum, pfm_name + pmatch[1].rm_so, pmatch[1].rm_eo - pmatch[1].rm_so);
         int32_t num = atoll(boxnum);
         /* imcbox corner case handling
          * papi enumerates the channel from both controllers 0-7
          * but adapt enurate the channels for each controller */
-        if (strstr(pfm_name, "unc_imc") != NULL) {
-        //if (box == NULL) {
-            if (num >= 0 && num < imc0box_size) {
+        if (strstr(pfm_name, "unc_imc") != NULL)
+        {
+            // if (box == NULL) {
+            if (num >= 0 && num < imc0box_size)
+            {
                 *ret_box = &(imc0box[num + node * size]);
             }
-            else if (num >= 4 && num < (imc1box_size + 4)) {
-                *ret_box = &(imc1box[num-4 + node * size]);
+            else if (num >= 4 && num < (imc1box_size + 4))
+            {
+                *ret_box = &(imc1box[num - 4 + node * size]);
             }
             return 0;
         }
         /* default case */
-        else if (num >= 0 && num < size) {
+        else if (num >= 0 && num < size)
+        {
             *ret_box = &(box[num + node * size]);
             return 0;
         }
-        else {
+        else
+        {
             return -1;
         }
     }
@@ -417,23 +443,27 @@ static inline int32_t __match_box(struct unc_box** ret_box, const char* pfm_name
 
 static int32_t __get_box(struct unc_box** box, const char* pfm_name, int32_t node)
 {
-    if (node >= node_num) {
+    if (node >= node_num)
+    {
         fprintf(stderr, "Node %d not available\n", node);
         return -1;
     }
     /* single boxes */
     /* ubox */
-    if (strstr(pfm_name, "unc_ubo") != NULL && ubox_size > 0) {
+    if (strstr(pfm_name, "unc_ubo") != NULL && ubox_size > 0)
+    {
         *box = &(ubox[node]);
         return 0;
     }
     /* pcubox */
-    if (strstr(pfm_name, "unc_pcu") != NULL && pcubox_size > 0) {
+    if (strstr(pfm_name, "unc_pcu") != NULL && pcubox_size > 0)
+    {
         *box = &(pcubox[node]);
         return 0;
     }
     /* r2pcie */
-    if (strstr(pfm_name, "unc_r2pcie") !=NULL && r2pcibox_size > 0) {
+    if (strstr(pfm_name, "unc_r2pcie") != NULL && r2pcibox_size > 0)
+    {
         *box = &(r2pcibox[node]);
         return 0;
     }
@@ -476,31 +506,35 @@ int32_t x86a_setup_counter(struct event* evt, pfm_pmu_encode_arg_t* enc, int32_t
 
     /* corner case for fixed counters */
     /* only happens with imc boxes */
-    if (strstr(enc->fstr[0],"unc_imc") != NULL &&
-        strstr(enc->fstr[0],"UNC_M_CLOCKTICKS") != NULL)
+    if (strstr(enc->fstr[0], "unc_imc") != NULL && strstr(enc->fstr[0], "UNC_M_CLOCKTICKS") != NULL)
     {
         fixed = 1;
     }
 
-    ret = __get_box(&box, (const char*) enc->fstr[0], evt->node);
-    if (ret) {
-        fprintf(stderr, "Failed to retrieve box for event %s on node %d\n", enc->fstr[0], evt->node);
+    ret = __get_box(&box, (const char*)enc->fstr[0], evt->node);
+    if (ret)
+    {
+        fprintf(stderr, "Failed to retrieve box for event %s on node %d\n", enc->fstr[0],
+                evt->node);
         return -1;
     }
 
     /* get fd for the device */
     evt->fd = x86_adapt_get_device(X86_ADAPT_DIE, evt->node);
-    if (evt->fd < 0) {
+    if (evt->fd < 0)
+    {
         fprintf(stderr, "Failed to get file descriptor on cpu %d\n", cpu);
         return -1;
     }
 
     /* special case, fixed counter */
-    if (fixed) {
+    if (fixed)
+    {
         box->fixed[0].used = 1;
         evt->item = box->fixed[0].ctr;
-        ret = x86_adapt_set_setting(evt->fd, box->fixed[0].ctl, enc->codes[0] | (1u << 22u) );
-        if (ret != 8) {
+        ret = x86_adapt_set_setting(evt->fd, box->fixed[0].ctl, enc->codes[0] | (1u << 22u));
+        if (ret != 8)
+        {
             fprintf(stderr, "Failed to write counter config for event %s\n", enc->fstr[0]);
             return -1;
         }
@@ -512,60 +546,70 @@ int32_t x86a_setup_counter(struct event* evt, pfm_pmu_encode_arg_t* enc, int32_t
     /* first free counter */
     while (ctr < box->norm_size && box->norm[ctr].used)
         ctr++;
-    if (ctr >= box->norm_size) {
+    if (ctr >= box->norm_size)
+    {
         fprintf(stderr, "No free counter available for event %s\n", enc->fstr[0]);
         return -1;
     }
     box->norm[ctr].used = 1;
     evt->item = box->norm[ctr].ctr;
 
-    switch (enc->count) {
-        case 3:
-            data = 0;
-            ret = x86_adapt_get_setting(evt->fd, box->filter1, &data);
-            if (!ret) {
-                fprintf(stderr, "Failed to read filter register 1 for event %s\n", enc->fstr[0]);
-                return -1;
-            }
-            data |= enc->codes[2];
-            ret = x86_adapt_set_setting(evt->fd, box->filter1, data);
-            if (ret != 8) {
-                fprintf(stderr, "Failed to write filter register 1 for event %s\n", enc->fstr[0]);
-                return -1;
-            }
-        case 2:
-            data = 0;
-            ret = x86_adapt_get_setting(evt->fd, box->filter0, &data);
-            if (!ret) {
-                fprintf(stderr, "Failed to read filter register 0 for event %s\n", enc->fstr[0]);
-                return -1;
-            }
-            data |= enc->codes[1];
-            ret = x86_adapt_set_setting(evt->fd, box->filter0, data);
-            if (ret != 8) {
-                fprintf(stderr, "Failed to write filter register 0 for event %s\n", enc->fstr[0]);
-                return -1;
-            }
-        case 1:
-            ret = x86_adapt_set_setting(evt->fd, box->norm[ctr].ctl, enc->codes[0] | (1u << 22u) );
-            if (ret != 8) {
-                fprintf(stderr, "Failed to write counter config for event %s\n", enc->fstr[0]);
-                return -1;
-            }
-            break;
-        default:
-            fprintf(stderr, "Unknown event encode size %d\n",enc->count);
+    switch (enc->count)
+    {
+    case 3:
+        data = 0;
+        ret = x86_adapt_get_setting(evt->fd, box->filter1, &data);
+        if (!ret)
+        {
+            fprintf(stderr, "Failed to read filter register 1 for event %s\n", enc->fstr[0]);
             return -1;
+        }
+        data |= enc->codes[2];
+        ret = x86_adapt_set_setting(evt->fd, box->filter1, data);
+        if (ret != 8)
+        {
+            fprintf(stderr, "Failed to write filter register 1 for event %s\n", enc->fstr[0]);
+            return -1;
+        }
+    case 2:
+        data = 0;
+        ret = x86_adapt_get_setting(evt->fd, box->filter0, &data);
+        if (!ret)
+        {
+            fprintf(stderr, "Failed to read filter register 0 for event %s\n", enc->fstr[0]);
+            return -1;
+        }
+        data |= enc->codes[1];
+        ret = x86_adapt_set_setting(evt->fd, box->filter0, data);
+        if (ret != 8)
+        {
+            fprintf(stderr, "Failed to write filter register 0 for event %s\n", enc->fstr[0]);
+            return -1;
+        }
+    case 1:
+        ret = x86_adapt_set_setting(evt->fd, box->norm[ctr].ctl, enc->codes[0] | (1u << 22u));
+        if (ret != 8)
+        {
+            fprintf(stderr, "Failed to write counter config for event %s\n", enc->fstr[0]);
+            return -1;
+        }
+        break;
+    default:
+        fprintf(stderr, "Unknown event encode size %d\n", enc->count);
+        return -1;
     }
     return 0;
 }
 
-int32_t x86a_unfreeze_all(void) {
+int32_t x86a_unfreeze_all(void)
+{
 
     int32_t ret;
-    for (int32_t i=0; i<node_num; i++) { 
+    for (int32_t i = 0; i < node_num; i++)
+    {
         int32_t node = x86_adapt_get_device(X86_ADAPT_DIE, i);
-        if (node < 0) {
+        if (node < 0)
+        {
             fprintf(stderr, "Could not get fd for resetting the boxes\n");
             return -1;
         }
