@@ -53,12 +53,12 @@
 #include <x86_adapt.h>
 #endif
 
-static pthread_t threads[MAX_EVENTS] = { 0 };
-static int thread_enabled[MAX_EVENTS] = { 0 };
+static pthread_t* threads;
+static int* thread_enabled;
 static int is_thread_created = 0;
 static char vt_sep = '#';
 static int ht_enabled;
-static struct event event_list[MAX_EVENTS] = { 0 };
+static struct event* event_list;
 static int32_t event_list_size;
 
 static uint64_t (*wtime)(void) = NULL;
@@ -185,6 +185,13 @@ static int x86_energy_node_of_cpu(int __cpu)
 
 int32_t init(void)
 {
+    threads = calloc(MAX_EVENTS, sizeof(int));
+    thread_enabled = calloc(MAX_EVENTS, sizeof(int));
+    is_thread_created = 0;
+    vt_sep = '#';
+    event_list = calloc(MAX_EVENTS, sizeof(struct event));
+    event_list_size = 0;
+
     char* env_string;
     int ret;
 
@@ -405,6 +412,8 @@ void fini(void)
         was_enabled[i] = thread_enabled[i];
         thread_enabled[i] = 0;
     }
+    free(thread_enabled);
+
     for (int i = 0; i < MAX_EVENTS; i++)
     {
         if (was_enabled[i])
@@ -412,12 +421,14 @@ void fini(void)
             pthread_join(threads[i], NULL);
         }
     }
+    free(threads);
 
     for (int i = 0; i < event_list_size; i++)
     {
         close(event_list[i].fd);
         free(event_list[i].name);
     }
+    free(threads);
 
 #ifdef X86_ADAPT
     x86a_wrapper_fini();
