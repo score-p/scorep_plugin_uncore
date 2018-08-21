@@ -428,7 +428,7 @@ void fini(void)
         close(event_list[i].fd);
         free(event_list[i].name);
     }
-    free(threads);
+    free(event_list);
 
 #ifdef X86_ADAPT
     x86a_wrapper_fini();
